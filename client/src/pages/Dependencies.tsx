@@ -108,8 +108,30 @@ export default function Dependencies() {
 
   const handleCreateDependency = (dependencyData: any) => {
     console.log("Creating new dependency:", dependencyData);
+    
+    // Create new dependency with generated ID and metadata
+    const newDependency = {
+      id: `dep-${Date.now()}`, // Simple ID generation for demo
+      groupId: dependencyData.groupId,
+      artifactId: dependencyData.artifactId,
+      version: dependencyData.version,
+      scope: dependencyData.scope,
+      description: dependencyData.description || '',
+      vulnerabilityCount: 0, // New dependencies start with 0 vulnerabilities
+      lastUpdated: 'just now',
+    };
+    
+    // Add to the beginning of the list
+    const updatedDependencies = [newDependency, ...mockDependencies];
+    
+    // Update both the master list and filtered list
+    mockDependencies.unshift(newDependency); // Add to mock data
+    setFilteredDependencies(updatedDependencies);
+    
+    // Close the modal
     setShowNewDependencyForm(false);
-    // TODO: Implement actual dependency creation
+    
+    console.log(`✅ Successfully added dependency: ${dependencyData.groupId}:${dependencyData.artifactId}:${dependencyData.version}`);
   };
 
   const uniqueScopes = Array.from(new Set(mockDependencies.map(dep => dep.scope)));

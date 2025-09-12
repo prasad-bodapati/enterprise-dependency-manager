@@ -15,23 +15,16 @@ import Projects from "@/pages/Projects";
 import Dependencies from "@/pages/Dependencies";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
-
+  // Skip authentication for now - always show authenticated app
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <Route path="/" component={Home} />
-          <Route path="/projects" component={Projects} />
-          <Route path="/dependencies" component={Dependencies} />
-          <Route path="/vulnerabilities" component={() => <div className="p-6"><h1 className="text-2xl font-bold">Vulnerabilities Dashboard</h1><p className="text-muted-foreground">Coming soon - vulnerability tracking and management</p></div>} />
-          <Route path="/api-docs" component={() => <div className="p-6"><h1 className="text-2xl font-bold">API Documentation</h1><p className="text-muted-foreground">Coming soon - Gradle plugin integration docs</p></div>} />
-          <Route path="/users" component={() => <div className="p-6"><h1 className="text-2xl font-bold">User Management</h1><p className="text-muted-foreground">Coming soon - user roles and permissions</p></div>} />
-          <Route path="/settings" component={() => <div className="p-6"><h1 className="text-2xl font-bold">Settings</h1><p className="text-muted-foreground">Coming soon - platform configuration</p></div>} />
-        </>
-      )}
+      <Route path="/" component={Home} />
+      <Route path="/projects" component={Projects} />
+      <Route path="/dependencies" component={Dependencies} />
+      <Route path="/vulnerabilities" component={() => <div className="p-6"><h1 className="text-2xl font-bold">Vulnerabilities Dashboard</h1><p className="text-muted-foreground">Coming soon - vulnerability tracking and management</p></div>} />
+      <Route path="/api-docs" component={() => <div className="p-6"><h1 className="text-2xl font-bold">API Documentation</h1><p className="text-muted-foreground">Coming soon - Gradle plugin integration docs</p></div>} />
+      <Route path="/users" component={() => <div className="p-6"><h1 className="text-2xl font-bold">User Management</h1><p className="text-muted-foreground">Coming soon - user roles and permissions</p></div>} />
+      <Route path="/settings" component={() => <div className="p-6"><h1 className="text-2xl font-bold">Settings</h1><p className="text-muted-foreground">Coming soon - platform configuration</p></div>} />
       {/* Only show 404 for non-API routes */}
       <Route path="/api/*">
         {() => {
@@ -46,8 +39,6 @@ function Router() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
-  
   // Custom sidebar width for enterprise application
   const style = {
     "--sidebar-width": "16rem",       // 256px for navigation
@@ -57,26 +48,18 @@ function AppContent() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="gradle-deps-theme">
       <TooltipProvider>
-        {isLoading || !isAuthenticated ? (
-          // Landing page without sidebar
-          <>
-            <Router />
-            <Toaster />
-          </>
-        ) : (
-          // Authenticated app with sidebar
-          <SidebarProvider style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full">
-              <AppSidebar />
-              <div className="flex flex-col flex-1">
-                <Header />
-                <main className="flex-1 overflow-auto p-6">
-                  <Router />
-                </main>
-              </div>
+        {/* Always show authenticated app with sidebar for now */}
+        <SidebarProvider style={style as React.CSSProperties}>
+          <div className="flex h-screen w-full">
+            <AppSidebar />
+            <div className="flex flex-col flex-1">
+              <Header />
+              <main className="flex-1 overflow-auto p-6">
+                <Router />
+              </main>
             </div>
-          </SidebarProvider>
-        )}
+          </div>
+        </SidebarProvider>
         <Toaster />
       </TooltipProvider>
     </ThemeProvider>
