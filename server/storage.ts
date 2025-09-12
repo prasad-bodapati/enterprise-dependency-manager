@@ -1,13 +1,13 @@
-import { type User, type InsertUser } from "@shared/schema";
+import { type User, type UpsertUser } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // modify the interface with any CRUD methods
 // you might need
 
 export interface IStorage {
+  // User operations - required for Replit Auth
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  upsertUser(user: UpsertUser): Promise<User>;
 }
 
 export class MemStorage implements IStorage {
@@ -21,17 +21,31 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const existingUser = this.users.get(userData.id!);
+    
+    if (existingUser) {
+      // Update existing user
+      const updatedUser: User = { 
+        ...existingUser, 
+        ...userData, 
+        updatedAt: new Date() 
+      };
+      this.users.set(userData.id!, updatedUser);
+      return updatedUser;
+    } else {
+      // Create new user
+      const id = userData.id || randomUUID();
+      const user: User = { 
+        ...userData, 
+        id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        role: userData.role || "member"
+      };
+      this.users.set(id, user);
+      return user;
+    }
   }
 }
 
