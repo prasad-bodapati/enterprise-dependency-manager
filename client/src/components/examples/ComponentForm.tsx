@@ -1,0 +1,1 @@
+import { ComponentForm } from '../ComponentForm';\n\nexport default function ComponentFormExample() {\n  return (\n    <div className=\"p-4 max-w-2xl\">\n      <ComponentForm projectId=\"proj-1\" />\n    </div>\n  );\n}"

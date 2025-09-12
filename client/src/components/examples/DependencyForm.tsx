@@ -1,0 +1,1 @@
+import { DependencyForm } from '../DependencyForm';\n\nexport default function DependencyFormExample() {\n  return (\n    <div className=\"p-4 max-w-2xl\">\n      <DependencyForm componentId=\"comp-1\" />\n    </div>\n  );\n}"

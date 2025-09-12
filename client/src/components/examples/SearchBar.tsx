@@ -1,0 +1,1 @@
+import { SearchBar } from '../SearchBar';\n\nexport default function SearchBarExample() {\n  return (\n    <div className=\"p-4 max-w-lg\">\n      <SearchBar placeholder=\"Search for Spring Boot dependencies...\" />\n    </div>\n  );\n}"
