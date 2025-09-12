@@ -32,6 +32,14 @@ function Router() {
           <Route path="/settings" component={() => <div className="p-6"><h1 className="text-2xl font-bold">Settings</h1><p className="text-muted-foreground">Coming soon - platform configuration</p></div>} />
         </>
       )}
+      {/* Only show 404 for non-API routes */}
+      <Route path="/api/*">
+        {() => {
+          // Let server handle API routes by triggering a page reload
+          window.location.href = window.location.href;
+          return null;
+        }}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
