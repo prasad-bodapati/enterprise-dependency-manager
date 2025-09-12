@@ -1,0 +1,79 @@
+Requirement Document: Centralized Gradle Dependency Management Platform
+Objective
+Replace scattered, individually maintained Gradle dependency declarations with a centralized app and API-driven integration. Teams onboard components via UI and declare dependencies (open source or internal Nexus/Maven) with configuration types (implementation, api, compileOnly, etc.). A custom Gradle plugin automates dependency fetching at build, compile, and test phases by calling the app.
+
+Functional Requirements
+1. UI & Backend: Component Onboarding & Dependency Declaration
+* Component/Project Registration
+    * Allow users/teams to register new or existing components/projects.
+    * Each component has metadata and dependency records managed centrally.
+    * Allow project to have multiple components with their repository
+    * Allow each component to have multiple submodules
+* Dependency Search & Selection
+    * Integrate with internal Nexus/Maven repositories and display available artifacts.
+    * Allow keyword/group/artifact/version search for dependencies.
+    * Show dependency details (name, version, description, transitive dependencies).
+* Dependency Declaration
+    * Let users select a dependency and its Gradle scope/configuration (implementation, api, compileOnly, testImplementation, etc.).
+    * Persist all selected dependencies and types per component/project, editable via UI.
+* Version Catalog and BOM Support
+    * Optionally support Gradle Version Catalogs or BOMs for shared version control across multiple modules or projects.
+    * Provide admin interface for catalog creation and updates.
+* Audit and Change History
+    * Log changes to dependencies, versions, and configurations.
+    * Show audit/history per component to trace updates and resolve issues.
+* Vulnerabilities management
+    * For each dependency added check whether there any vulnerabilities reported
+    * Maintaining historical information of each component what dependencies they have and vulnerabilities reported against the component
+* Dashboard
+    * Each project dashboard should list of components with number of vulnerabilities reported
+    * Ability to filter level of vulnerabilities critical/medium low
+* Automated version updates
+    * Ability to update a version of library for all components with click
+* Component dependencies version management
+    * Each time a dependency is updated in the system create a new version in the system
+    * This will the actual plugin to pull particular packaged versions of dependencies not only the latest versions
+2. Gradle Plugin: Automated Dependency Resolution
+* API Integration
+    * At build, compile, and test phases, the plugin calls the central app API to fetch the currently declared dependencies and types for the module/project.
+    * Parse and inject dependencies programmatically using Gradle’s APIs (in the correct scopes).
+* Dynamic Dependency Application
+    * Applies injected dependencies at configuration time, ensuring alignment with the central app.
+    * Optionally enforces plugin-only managed dependencies (disallowing local build.gradle changes) to avoid drift.
+* Repository Configuration
+    * Plugin configures Gradle to use repositories (internal Nexus/Maven, open source) as specified in the app.
+* Error Handling & Reporting
+    * If resolution fails (missing artifacts, wrong version, repository error), fail gracefully and report errors through the build output and app UI.
+* Show dependencies 
+    * A grade task on the plugin should show list of dependencies for that component/module 
+
+Non-Functional Requirements
+* Security
+    * Support user authentication, permissions for component modification, and API access control.
+    * Integration with enterprise SSO if required.
+* Performance
+    * Fast, responsive API queries and UI experience for dependency lookup, onboarding, and audit trail.
+    * Handle hundreds of projects, thousands of dependencies efficiently.
+* Scalability
+    * Architecture supports large orgs with many teams and frequent dependency updates.
+* Extensibility
+    * Modular backend and plugin design enables future support for other build tools or enhanced reporting.
+
+User Experience
+* Intuitive UI
+    * Guided registration, search, selection, and edit flows.
+    * Clear workflow for adding/removing dependencies, setting configuration types, and updating versions.
+    * Visible audit trail and error feedback.
+* Collaboration
+    * Roles (admin, member) for managing dependencies, catalogs, and updates.
+    * Team-based access to shared dependency lists.
+* Documentation
+    * Online documentation on onboarding components, using the plugin, and troubleshooting common issues.
+
+Implementation and Integration Guidelines
+* Use RESTful APIs for backend/plugin communication.
+* Backend to maintain strong referential integrity on component/dependency records.
+* Consider usage of Gradle Version Catalog or BOM for shared versions.
+* Favor automation and transparency to reduce manual version updates and configuration drift.
+
+This solution enables teams to streamline onboarding, ensure dependency consistency, eliminate manual edits to build.gradle, and automate dependency resolution using modern Gradle and repository management practices.
