@@ -1,44 +1,53 @@
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Search } from "lucide-react";
-import { gradleScopes } from "@shared/schema";
+import { Package, Search, Loader2 } from "lucide-react";
+import { insertDependencySchema, gradleScopes, type InsertDependency } from "@shared/schema";
+
+// Extend the base schema with enhanced validation (omit addedBy as server will set it)
+const formSchema = insertDependencySchema.omit({ addedBy: true }).extend({
+  groupId: z.string().min(1, "Group ID is required").min(2, "Group ID must be at least 2 characters"),
+  artifactId: z.string().min(1, "Artifact ID is required").min(2, "Artifact ID must be at least 2 characters"),
+  version: z.string().min(1, "Version is required"),
+  scope: z.enum(gradleScopes, { required_error: "Please select a dependency scope" }),
+  description: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 interface DependencyFormProps {
   componentId: string;
-  onSubmit?: (dependency: {
-    groupId: string;
-    artifactId: string;
-    version: string;
-    scope: string;
-    description: string;
-  }) => void;
+  onSubmit?: (dependency: FormData) => void;
   onCancel?: () => void;
+  isLoading?: boolean;
 }
 
-export function DependencyForm({ componentId, onSubmit, onCancel }: DependencyFormProps) {
-  const [formData, setFormData] = useState({
-    groupId: "",
-    artifactId: "",
-    version: "",
-    scope: "implementation",
-    description: "",
+export function DependencyForm({ componentId, onSubmit, onCancel, isLoading }: DependencyFormProps) {
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    mode: "onChange", // Enable real-time validation
+    defaultValues: {
+      componentId,
+      groupId: "",
+      artifactId: "",
+      version: "",
+      scope: undefined,
+      description: "",
+    },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log(`Adding dependency to component ${componentId}:`, formData);
-    onSubmit?.(formData);
-    setFormData({ groupId: "", artifactId: "", version: "", scope: "implementation", description: "" });
+  const handleSubmit = (data: FormData) => {
+    onSubmit?.(data);
   };
 
   const handleCancel = () => {
-    console.log("Cancelling dependency addition");
-    setFormData({ groupId: "", artifactId: "", version: "", scope: "implementation", description: "" });
+    form.reset();
     onCancel?.();
   };
 
@@ -59,97 +68,156 @@ export function DependencyForm({ componentId, onSubmit, onCancel }: DependencyFo
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleSearchDependency}
-              className="flex items-center gap-2"
-              data-testid="button-search-repository"
-            >
-              <Search className="h-4 w-4" />
-              Search Repository
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="group-id">Group ID</Label>
-              <Input
-                id="group-id"
-                placeholder="e.g., org.springframework"
-                value={formData.groupId}
-                onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
-                required
-                data-testid="input-group-id"
+        <div className="flex gap-2 mb-4">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={handleSearchDependency}
+            className="flex items-center gap-2"
+            data-testid="button-search-repository"
+          >
+            <Search className="h-4 w-4" />
+            Search Repository
+          </Button>
+        </div>
+        
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="groupId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Group ID *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., org.springframework"
+                        data-testid="input-dependency-groupid"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      The organization or group that publishes this dependency
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="artifactId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Artifact ID *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., spring-boot-starter-web"
+                        data-testid="input-dependency-artifactid"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      The specific library or module name
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="artifact-id">Artifact ID</Label>
-              <Input
-                id="artifact-id"
-                placeholder="e.g., spring-boot-starter-web"
-                value={formData.artifactId}
-                onChange={(e) => setFormData({ ...formData, artifactId: e.target.value })}
-                required
-                data-testid="input-artifact-id"
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="version"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Version *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., 2.7.0, 31.1-jre"
+                        data-testid="input-dependency-version"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      The version of the dependency to use
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="version">Version</Label>
-              <Input
-                id="version"
-                placeholder="e.g., 2.7.0"
-                value={formData.version}
-                onChange={(e) => setFormData({ ...formData, version: e.target.value })}
-                required
-                data-testid="input-version"
+              
+              <FormField
+                control={form.control}
+                name="scope"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Scope *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-dependency-scope">
+                          <SelectValue placeholder="Select a dependency scope" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {gradleScopes.map((scope) => (
+                          <SelectItem key={scope} value={scope}>
+                            {scope}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      How this dependency should be included in your build
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="scope">Gradle Scope</Label>
-              <Select value={formData.scope} onValueChange={(value) => setFormData({ ...formData, scope: value })}>
-                <SelectTrigger data-testid="select-scope">
-                  <SelectValue placeholder="Select scope" />
-                </SelectTrigger>
-                <SelectContent>
-                  {gradleScopes.map((scope) => (
-                    <SelectItem key={scope} value={scope}>
-                      {scope}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="dependency-description">Description (Optional)</Label>
-            <Textarea
-              id="dependency-description"
-              placeholder="Brief description of what this dependency provides"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={2}
-              data-testid="textarea-dependency-description"
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Optional description of why this dependency is needed"
+                      rows={3}
+                      data-testid="textarea-dependency-description"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" data-testid="button-submit-dependency">
-              Add Dependency
-            </Button>
-            <Button type="button" variant="outline" onClick={handleCancel} data-testid="button-cancel-dependency">
-              Cancel
-            </Button>
-          </div>
-        </form>
+            
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isLoading}
+                data-testid="button-cancel-dependency"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isLoading || !form.formState.isValid}
+                data-testid="button-create-dependency"
+              >
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Add Dependency
+              </Button>
+            </div>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );

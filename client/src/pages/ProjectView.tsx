@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Settings, GitBranch, Users, Package, Shield, Calendar, ExternalLink } from "lucide-react";
+import { ArrowLeft, Settings, GitBranch, Users, Package, Shield, Calendar, ExternalLink, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,13 +10,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Project, Component, InsertComponent } from "@shared/schema";
+import type { Project, Component, InsertComponent, Dependency, InsertDependency } from "@shared/schema";
 import { ComponentForm } from "@/components/ComponentForm";
+import { DependencyForm } from "@/components/DependencyForm";
 
 export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const [isAddComponentDialogOpen, setIsAddComponentDialogOpen] = useState(false);
+  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
+  const [isDependencyDialogOpen, setIsDependencyDialogOpen] = useState(false);
 
   // Fetch project details
   const { data: project, isLoading, error } = useQuery({
@@ -53,6 +56,34 @@ export default function ProjectView() {
     },
   });
 
+  // Create dependency mutation
+  const createDependencyMutation = useMutation({
+    mutationFn: async (dependencyData: Omit<InsertDependency, 'addedBy'>) => {
+      const response = await apiRequest('POST', '/api/dependencies', dependencyData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Dependency added",
+        description: "The dependency has been successfully added to the component.",
+      });
+      setIsDependencyDialogOpen(false);
+      setSelectedComponentId(null);
+      // Invalidate dependency queries
+      queryClient.invalidateQueries({ queryKey: ['/api/dependencies'] });
+      if (selectedComponentId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/components', selectedComponentId, 'dependencies'] });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error adding dependency",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Fetch project components
   const { data: components = [], isLoading: componentsLoading } = useQuery({
     queryKey: ['/api/projects', id, 'components'],
@@ -64,14 +95,43 @@ export default function ProjectView() {
     enabled: !!id,
   });
 
-  // TODO: Fetch project dependencies when dependencies API is ready  
-  const dependencies = []; // Placeholder for now
+  // Fetch all dependencies for the project (across all components)
+  const { data: allDependencies = [] } = useQuery({
+    queryKey: ['/api/dependencies'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/dependencies');
+      return response.json() as Promise<Dependency[]>;
+    },
+  });
+
+  // Filter dependencies for this project's components
+  const projectDependencies = allDependencies.filter(dep => 
+    components.some(comp => comp.id === dep.componentId)
+  );
 
   // TODO: Fetch vulnerability count when vulnerabilities API is ready
   const vulnerabilities = []; // Placeholder for now
 
   const handleCreateComponent = (componentData: InsertComponent) => {
     createComponentMutation.mutate(componentData);
+  };
+
+  const handleCreateDependency = (dependencyData: Omit<InsertDependency, 'addedBy'>) => {
+    // Ensure componentId is explicitly included and add server-side fields
+    const fullDependencyData = {
+      ...dependencyData,
+      componentId: selectedComponentId!
+    };
+    createDependencyMutation.mutate(fullDependencyData);
+  };
+
+  const handleAddDependency = (componentId: string) => {
+    setSelectedComponentId(componentId);
+    setIsDependencyDialogOpen(true);
+  };
+
+  const getComponentDependencies = (componentId: string) => {
+    return allDependencies.filter(dep => dep.componentId === componentId);
   };
 
   const formatDate = (dateValue: Date | string | null) => {
@@ -284,35 +344,52 @@ export default function ProjectView() {
                 </div>
               ) : (
                 <div className="space-y-3" data-testid="components-list">
-                  {components.map((component) => (
-                    <Card key={component.id} className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-foreground" data-testid={`component-name-${component.id}`}>
-                            {component.name}
-                          </h4>
-                          {component.description && (
-                            <p className="text-sm text-muted-foreground mt-1" data-testid={`component-description-${component.id}`}>
-                              {component.description}
-                            </p>
-                          )}
-                          {component.submodulePath && (
+                  {components.map((component) => {
+                    const componentDependencies = getComponentDependencies(component.id);
+                    return (
+                      <Card key={component.id} className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-foreground" data-testid={`component-name-${component.id}`}>
+                              {component.name}
+                            </h4>
+                            {component.description && (
+                              <p className="text-sm text-muted-foreground mt-1" data-testid={`component-description-${component.id}`}>
+                                {component.description}
+                              </p>
+                            )}
                             <div className="flex items-center gap-2 mt-2">
-                              <Badge variant="outline" className="text-xs" data-testid={`component-path-${component.id}`}>
-                                {component.submodulePath}
+                              {component.submodulePath && (
+                                <Badge variant="outline" className="text-xs" data-testid={`component-path-${component.id}`}>
+                                  {component.submodulePath}
+                                </Badge>
+                              )}
+                              <Badge variant="secondary" className="text-xs" data-testid={`component-dependency-count-${component.id}`}>
+                                {componentDependencies.length} dependencies
                               </Badge>
                             </div>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Created {formatDate(component.createdAt)}
-                          </p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Created {formatDate(component.createdAt)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleAddDependency(component.id)}
+                              data-testid={`button-add-dependency-${component.id}`}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Dependency
+                            </Button>
+                            <Button variant="ghost" size="sm" data-testid={`button-component-menu-${component.id}`}>
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <Button variant="ghost" size="sm" data-testid={`button-component-menu-${component.id}`}>
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -343,7 +420,7 @@ export default function ProjectView() {
                   <span className="text-sm">Dependencies</span>
                 </div>
                 <Badge variant="secondary" data-testid="badge-dependency-count">
-                  {dependencies.length}
+                  {projectDependencies.length}
                 </Badge>
               </div>
 
@@ -421,6 +498,29 @@ export default function ProjectView() {
               onSubmit={handleCreateComponent}
               onCancel={() => setIsAddComponentDialogOpen(false)}
               isLoading={createComponentMutation.isPending}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Dependency Dialog */}
+      <Dialog open={isDependencyDialogOpen} onOpenChange={setIsDependencyDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Add Dependency</DialogTitle>
+            <DialogDescription>
+              Add a new Gradle dependency to the selected component.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedComponentId && (
+            <DependencyForm
+              componentId={selectedComponentId}
+              onSubmit={handleCreateDependency}
+              onCancel={() => {
+                setIsDependencyDialogOpen(false);
+                setSelectedComponentId(null);
+              }}
+              isLoading={createDependencyMutation.isPending}
             />
           )}
         </DialogContent>
