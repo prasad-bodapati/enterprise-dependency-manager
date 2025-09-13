@@ -13,6 +13,7 @@ import Landing from "@/pages/Landing";
 import Home from "@/pages/Home";
 import Projects from "@/pages/Projects";
 import ProjectView from "@/pages/ProjectView";
+import ComponentView from "@/pages/ComponentView";
 import Dependencies from "@/pages/Dependencies";
 
 function Router() {
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/projects" component={Projects} />
       <Route path="/projects/:id" component={ProjectView} />
+      <Route path="/components/:id" component={ComponentView} />
       <Route path="/dependencies" component={Dependencies} />
       <Route path="/vulnerabilities" component={() => <div className="p-6"><h1 className="text-2xl font-bold">Vulnerabilities Dashboard</h1><p className="text-muted-foreground">Coming soon - vulnerability tracking and management</p></div>} />
       <Route path="/api-docs" component={() => <div className="p-6"><h1 className="text-2xl font-bold">API Documentation</h1><p className="text-muted-foreground">Coming soon - Gradle plugin integration docs</p></div>} />
