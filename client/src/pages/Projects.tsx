@@ -1,55 +1,67 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ProjectCard } from "@/components/ProjectCard";
 import { SearchBar } from "@/components/SearchBar";
 import { ComponentForm } from "@/components/ComponentForm";
 import { Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-
-// TODO: Remove mock data - replace with real API calls
-const mockProjects = [
-  {
-    id: 'proj-1',
-    name: 'E-Commerce Platform',
-    description: 'Core e-commerce microservices with payment processing and user management',
-    repositoryUrl: 'https://github.com/company/ecommerce-platform',
-    componentCount: 8,
-    vulnerabilityCount: 3,
-    lastUpdated: '2 days ago',
-  },
-  {
-    id: 'proj-2',
-    name: 'Data Analytics Pipeline',
-    description: 'Real-time data processing and analytics infrastructure',
-    repositoryUrl: 'https://github.com/company/analytics-pipeline',
-    componentCount: 5,
-    vulnerabilityCount: 0,
-    lastUpdated: '1 week ago',
-  },
-  {
-    id: 'proj-3',
-    name: 'Customer Support Portal',
-    description: 'Internal customer support tools and ticket management system',
-    repositoryUrl: 'https://github.com/company/support-portal',
-    componentCount: 12,
-    vulnerabilityCount: 7,
-    lastUpdated: '3 days ago',
-  },
-  {
-    id: 'proj-4',
-    name: 'Mobile API Gateway',
-    description: 'API gateway and authentication service for mobile applications',
-    repositoryUrl: 'https://github.com/company/mobile-gateway',
-    componentCount: 3,
-    vulnerabilityCount: 1,
-    lastUpdated: '5 days ago',
-  },
-];
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Project, InsertProject } from "@shared/schema";
 
 export default function Projects() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewProjectForm, setShowNewProjectForm] = useState(false);
-  const [filteredProjects, setFilteredProjects] = useState(mockProjects);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch projects from API
+  const { data: projects = [], isLoading, error } = useQuery({
+    queryKey: ['/api/projects'],
+    queryFn: async () => {
+      const response = await fetch('/api/projects');
+      if (!response.ok) {
+        throw new Error('Failed to fetch projects');
+      }
+      return response.json() as Promise<Project[]>;
+    }
+  });
+
+  // Create project mutation
+  const createProjectMutation = useMutation({
+    mutationFn: async (projectData: InsertProject) => {
+      return apiRequest('/api/projects', {
+        method: 'POST',
+        body: JSON.stringify(projectData),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({
+        title: "Success",
+        description: "Project created successfully",
+      });
+      setShowNewProjectForm(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create project",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Filter projects based on search query
+  const filteredProjects = projects.filter(project => {
+    if (searchQuery.trim() === "") return true;
+    return project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           project.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   const handleSearch = (query: string) => {
     console.log(`Searching projects for: ${query}`);
