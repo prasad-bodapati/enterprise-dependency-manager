@@ -29,7 +29,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Add proxy to forward /api/* to Java service on port 8080
+  // EXCEPT for projects and components which use Node.js/PostgreSQL
   app.use("/api", async (req, res, next) => {
+    // Skip Java proxy for project and component endpoints - use Node.js/PostgreSQL directly
+    if (req.path.startsWith('/projects') || req.path.startsWith('/components')) {
+      console.log(`Bypassing Java proxy for ${req.path}, using Node.js routes directly`);
+      next();
+      return;
+    }
+    
     try {
       const targetUrl = `http://localhost:8080/api${req.path}`;
       
@@ -106,12 +114,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects", async (req, res) => {
     try {
+      console.log("POST /api/projects - Request body:", req.body);
+      
       // For now, use a dummy user ID - will be replaced with actual auth later
       const projectData = {
         ...req.body,
         createdBy: "demo-user-id"
       };
+      
+      console.log("POST /api/projects - Final project data:", projectData);
+      
       const project = await storage.createProject(projectData);
+      console.log("POST /api/projects - Created project:", project);
+      
+      // Verify the project was actually saved by querying it back
+      const savedProject = await storage.getProject(project.id);
+      console.log("POST /api/projects - Verified saved project:", savedProject);
+      
       res.json(project);
     } catch (error) {
       console.error("Error creating project:", error);
