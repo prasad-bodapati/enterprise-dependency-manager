@@ -1,38 +1,78 @@
+import { useState } from "react";
 import { useParams, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { ArrowLeft, Settings, GitBranch, Users, Package, Shield, Calendar, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Project } from "@shared/schema";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { Project, Component, InsertComponent } from "@shared/schema";
+import { ComponentForm } from "@/components/ComponentForm";
 
 export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
+  const { toast } = useToast();
+  const [isAddComponentDialogOpen, setIsAddComponentDialogOpen] = useState(false);
 
   // Fetch project details
   const { data: project, isLoading, error } = useQuery({
     queryKey: ['/api/projects', id],
     queryFn: async () => {
       if (!id) throw new Error('No project ID provided');
-      const response = await fetch(`/api/projects/${id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch project');
-      }
+      const response = await apiRequest('GET', `/api/projects/${id}`);
       return response.json() as Promise<Project>;
     },
     enabled: !!id,
   });
 
-  // TODO: Fetch project components when components API is ready
-  const components = []; // Placeholder for now
+  // Create component mutation
+  const createComponentMutation = useMutation({
+    mutationFn: async (componentData: InsertComponent) => {
+      const response = await apiRequest('POST', '/api/components', componentData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Component created",
+        description: "The component has been successfully added to your project.",
+      });
+      setIsAddComponentDialogOpen(false);
+      // Invalidate components query when we implement it
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', id, 'components'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error creating component",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Fetch project components
+  const { data: components = [], isLoading: componentsLoading } = useQuery({
+    queryKey: ['/api/projects', id, 'components'],
+    queryFn: async () => {
+      if (!id) throw new Error('No project ID provided');
+      const response = await apiRequest('GET', `/api/projects/${id}/components`);
+      return response.json() as Promise<Component[]>;
+    },
+    enabled: !!id,
+  });
 
   // TODO: Fetch project dependencies when dependencies API is ready  
   const dependencies = []; // Placeholder for now
 
   // TODO: Fetch vulnerability count when vulnerabilities API is ready
   const vulnerabilities = []; // Placeholder for now
+
+  const handleCreateComponent = (componentData: InsertComponent) => {
+    createComponentMutation.mutate(componentData);
+  };
 
   const formatDate = (dateValue: Date | string | null) => {
     if (!dateValue) return 'Unknown';
@@ -211,25 +251,68 @@ export default function ProjectView() {
                     Modules and submodules within this project
                   </CardDescription>
                 </div>
-                <Button size="sm" data-testid="button-add-component">
+                <Button 
+                  size="sm" 
+                  onClick={() => setIsAddComponentDialogOpen(true)}
+                  data-testid="button-add-component"
+                >
                   Add Component
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              {components.length === 0 ? (
+              {componentsLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : components.length === 0 ? (
                 <div className="text-center py-8" data-testid="empty-components">
                   <Package className="h-8 w-8 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground mb-4">
                     No components added yet
                   </p>
-                  <Button size="sm" variant="outline" data-testid="button-add-first-component">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => setIsAddComponentDialogOpen(true)}
+                    data-testid="button-add-first-component"
+                  >
                     Add First Component
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {/* TODO: Render components list when components API is ready */}
+                <div className="space-y-3" data-testid="components-list">
+                  {components.map((component) => (
+                    <Card key={component.id} className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-foreground" data-testid={`component-name-${component.id}`}>
+                            {component.name}
+                          </h4>
+                          {component.description && (
+                            <p className="text-sm text-muted-foreground mt-1" data-testid={`component-description-${component.id}`}>
+                              {component.description}
+                            </p>
+                          )}
+                          {component.submodulePath && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="outline" className="text-xs" data-testid={`component-path-${component.id}`}>
+                                {component.submodulePath}
+                              </Badge>
+                            </div>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Created {formatDate(component.createdAt)}
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="sm" data-testid={`button-component-menu-${component.id}`}>
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -322,6 +405,26 @@ export default function ProjectView() {
           </Card>
         </div>
       </div>
+
+      {/* Add Component Dialog */}
+      <Dialog open={isAddComponentDialogOpen} onOpenChange={setIsAddComponentDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add New Component</DialogTitle>
+            <DialogDescription>
+              Create a new component or module within this project to organize your dependencies.
+            </DialogDescription>
+          </DialogHeader>
+          {project && (
+            <ComponentForm
+              projectId={project.id}
+              onSubmit={handleCreateComponent}
+              onCancel={() => setIsAddComponentDialogOpen(false)}
+              isLoading={createComponentMutation.isPending}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

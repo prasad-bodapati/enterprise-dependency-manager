@@ -1,99 +1,131 @@
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { insertComponentSchema, type InsertComponent } from "@shared/schema";
+
+// Extend the base schema with enhanced validation
+const formSchema = insertComponentSchema.extend({
+  name: z.string().min(1, "Component name is required").min(2, "Name must be at least 2 characters"),
+  description: z.string().optional(),
+  submodulePath: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 interface ComponentFormProps {
   projectId: string;
-  onSubmit?: (component: {
-    name: string;
-    description: string;
-    submodulePath: string;
-  }) => void;
+  onSubmit?: (component: InsertComponent) => void;
   onCancel?: () => void;
+  isLoading?: boolean;
 }
 
-export function ComponentForm({ projectId, onSubmit, onCancel }: ComponentFormProps) {
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    submodulePath: "",
+export function ComponentForm({ projectId, onSubmit, onCancel, isLoading }: ComponentFormProps) {
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    mode: "onChange", // Enable real-time validation
+    defaultValues: {
+      projectId,
+      name: "",
+      description: "",
+      submodulePath: "",
+    },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log(`Creating component for project ${projectId}:`, formData);
-    onSubmit?.(formData);
-    setFormData({ name: "", description: "", submodulePath: "" });
+  const handleSubmit = (data: FormData) => {
+    onSubmit?.(data);
   };
 
   const handleCancel = () => {
-    console.log("Cancelling component creation");
-    setFormData({ name: "", description: "", submodulePath: "" });
+    form.reset();
     onCancel?.();
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="h-5 w-5" />
-          Add New Component
-        </CardTitle>
-        <CardDescription>
-          Create a new component or module within this project
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="component-name">Component Name</Label>
-            <Input
-              id="component-name"
-              placeholder="e.g., user-service, api-gateway"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-              data-testid="input-component-name"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="component-description">Description</Label>
-            <Textarea
-              id="component-description"
-              placeholder="Brief description of this component's purpose"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
-              data-testid="textarea-component-description"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="submodule-path">Submodule Path</Label>
-            <Input
-              id="submodule-path"
-              placeholder="e.g., /services/user-service"
-              value={formData.submodulePath}
-              onChange={(e) => setFormData({ ...formData, submodulePath: e.target.value })}
-              data-testid="input-submodule-path"
-            />
-          </div>
-          
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" data-testid="button-submit-component">
-              Create Component
-            </Button>
-            <Button type="button" variant="outline" onClick={handleCancel} data-testid="button-cancel-component">
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Component Name *</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="e.g., core-api, web-ui, shared-utils"
+                  data-testid="input-component-name"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Brief description of this component's purpose and functionality"
+                  rows={3}
+                  data-testid="textarea-component-description"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="submodulePath"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Submodule Path</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="e.g., modules/core, apps/web, libs/shared"
+                  data-testid="input-submodule-path"
+                  {...field}
+                />
+              </FormControl>
+              <FormDescription>
+                Optional path to this component within your project structure
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <div className="flex justify-end gap-2 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isLoading}
+            data-testid="button-cancel-component"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isLoading || !form.formState.isValid}
+            data-testid="button-create-component"
+          >
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Add Component
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

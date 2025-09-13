@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { spawn } from "child_process";
+import { z } from "zod";
+import { insertComponentSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -163,9 +165,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/components", async (req, res) => {
     try {
-      const component = await storage.createComponent(req.body);
+      // Validate request body with Zod schema
+      const componentData = insertComponentSchema.parse(req.body);
+      const component = await storage.createComponent(componentData);
       res.json(component);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+        });
+      }
       console.error("Error creating component:", error);
       res.status(500).json({ message: "Failed to create component" });
     }
