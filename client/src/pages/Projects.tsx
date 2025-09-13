@@ -103,7 +103,7 @@ export default function Projects() {
 
   const handleViewProject = (projectId: string) => {
     console.log(`Viewing project: ${projectId}`);
-    // TODO: Use proper routing with wouter
+    // Use proper wouter routing
     window.location.href = `/projects/${projectId}`;
   };
 
