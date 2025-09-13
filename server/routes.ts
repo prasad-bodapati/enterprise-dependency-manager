@@ -2,8 +2,58 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { spawn } from "child_process";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Start Java Spring Boot service and add proxy
+  console.log("Starting Java Spring Boot service...");
+  // Create environment without DATABASE_URL to force H2 usage
+  const javaEnv = { ...process.env };
+  delete javaEnv.DATABASE_URL;  // Remove PostgreSQL URL to allow H2 configuration
+  
+  const javaProcess = spawn("mvn", ["-q", "spring-boot:run"], {
+    cwd: "backend-java",
+    stdio: ["ignore", "pipe", "pipe"],
+    env: javaEnv
+  });
+  
+  javaProcess.stdout?.on("data", (data) => {
+    console.log(`Java service: ${data}`);
+  });
+  
+  javaProcess.stderr?.on("data", (data) => {
+    console.error(`Java service error: ${data}`);
+  });
+  
+  // Add proxy to forward /api/* to Java service on port 8080
+  app.use("/api", async (req, res, next) => {
+    try {
+      const targetUrl = `http://localhost:8080/api${req.path}`;
+      
+      const response = await fetch(targetUrl, {
+        method: req.method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...req.headers
+        },
+        body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined
+      });
+      
+      const data = await response.text();
+      res.status(response.status);
+      
+      try {
+        const jsonData = JSON.parse(data);
+        res.json(jsonData);
+      } catch {
+        res.send(data);
+      }
+    } catch (error) {
+      // Fallback to Node.js routes if Java service isn't available yet
+      next();
+    }
+  });
   // Auth middleware - temporarily disabled for development
   // await setupAuth(app);
 

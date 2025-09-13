@@ -31,13 +31,17 @@ export default function Projects() {
   // Create project mutation
   const createProjectMutation = useMutation({
     mutationFn: async (projectData: InsertProject) => {
-      return apiRequest('/api/projects', {
+      const response = await fetch('/api/projects', {
         method: 'POST',
-        body: JSON.stringify(projectData),
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify(projectData),
       });
+      if (!response.ok) {
+        throw new Error('Failed to create project');
+      }
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
@@ -56,8 +60,33 @@ export default function Projects() {
     }
   });
 
+  // Transform database projects to UI format
+  const formatLastUpdated = (dateValue: Date | string | null) => {
+    if (!dateValue) return 'unknown';
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+    if (isNaN(date.getTime())) return 'unknown';
+    const now = new Date();
+    const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) return 'today';
+    if (diffInDays === 1) return '1 day ago';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+    return `${Math.floor(diffInDays / 30)} months ago`;
+  };
+
+  const transformedProjects = projects.map(project => ({
+    id: project.id,
+    name: project.name,
+    description: project.description || undefined,
+    repositoryUrl: project.repositoryUrl || undefined,
+    componentCount: 0, // TODO: Calculate actual component count when components API is ready
+    vulnerabilityCount: 0, // TODO: Calculate actual vulnerability count when vulnerabilities API is ready
+    lastUpdated: formatLastUpdated(project.updatedAt),
+  }));
+
   // Filter projects based on search query
-  const filteredProjects = projects.filter(project => {
+  const filteredProjects = transformedProjects.filter(project => {
     if (searchQuery.trim() === "") return true;
     return project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
            project.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -66,20 +95,10 @@ export default function Projects() {
   const handleSearch = (query: string) => {
     console.log(`Searching projects for: ${query}`);
     setSearchQuery(query);
-    if (query.trim() === "") {
-      setFilteredProjects(mockProjects);
-    } else {
-      const filtered = mockProjects.filter(project => 
-        project.name.toLowerCase().includes(query.toLowerCase()) ||
-        project.description?.toLowerCase().includes(query.toLowerCase())
-      );
-      setFilteredProjects(filtered);
-    }
   };
 
   const handleClearSearch = () => {
     setSearchQuery("");
-    setFilteredProjects(mockProjects);
   };
 
   const handleViewProject = (projectId: string) => {
@@ -89,8 +108,7 @@ export default function Projects() {
 
   const handleCreateProject = (projectData: any) => {
     console.log("Creating new project:", projectData);
-    setShowNewProjectForm(false);
-    // TODO: Implement actual project creation
+    createProjectMutation.mutate(projectData);
   };
 
   return (
@@ -131,7 +149,7 @@ export default function Projects() {
         />
         
         <div className="text-sm text-muted-foreground">
-          Showing {filteredProjects.length} of {mockProjects.length} projects
+          Showing {filteredProjects.length} of {projects.length} projects
         </div>
       </div>
 

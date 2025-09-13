@@ -1,0 +1,7 @@
+/home/runner/workspace/backend-java/src/main/java/com/gradledeps/repository/ProjectRepository.java
+/home/runner/workspace/backend-java/src/main/java/com/gradledeps/entity/Dependency.java
+/home/runner/workspace/backend-java/src/main/java/com/gradledeps/controller/ProjectController.java
+/home/runner/workspace/backend-java/src/main/java/com/gradledeps/entity/Component.java
+/home/runner/workspace/backend-java/src/main/java/com/gradledeps/GradleDependencyManagerApplication.java
+/home/runner/workspace/backend-java/src/main/java/com/gradledeps/entity/Project.java
+/home/runner/workspace/backend-java/src/main/java/com/gradledeps/entity/User.java

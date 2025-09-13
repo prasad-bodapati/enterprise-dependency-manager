@@ -1,0 +1,7 @@
+com/gradledeps/controller/ProjectController.class
+com/gradledeps/entity/Dependency.class
+com/gradledeps/repository/ProjectRepository.class
+com/gradledeps/entity/User.class
+com/gradledeps/entity/Project.class
+com/gradledeps/entity/Component.class
+com/gradledeps/GradleDependencyManagerApplication.class
