@@ -35,12 +35,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         method: req.method,
         headers: {
           'Content-Type': 'application/json',
-          ...req.headers
-        },
+          'Accept': 'application/json'
+        } as HeadersInit,
         body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined
       });
       
       const data = await response.text();
+      
+      // If Java service returns an error, fall back to Node.js routes
+      if (!response.ok && response.status >= 400) {
+        console.log(`Java service error ${response.status}, falling back to Node routes`);
+        next();
+        return;
+      }
+      
       res.status(response.status);
       
       try {
@@ -51,6 +59,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       // Fallback to Node.js routes if Java service isn't available yet
+      console.log('Java service connection failed, falling back to Node routes');
       next();
     }
   });

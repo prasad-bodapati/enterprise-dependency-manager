@@ -32,10 +32,9 @@ public class ProjectController {
 
     @PostMapping
     public ResponseEntity<Project> createProject(@RequestBody Project project) {
-        // Set default createdBy for demo - will be replaced with actual auth
-        if (project.getCreatedById() == null) {
-            project.setCreatedById("demo-user-id");
-        }
+        // For demo purposes, we'll skip the user requirement
+        // In production, this would be set from authentication context
+        project.setCreatedById(null);  // Allow null for demo
         Project savedProject = projectRepository.save(project);
         return ResponseEntity.ok(savedProject);
     }

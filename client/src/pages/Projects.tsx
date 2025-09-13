@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ProjectCard } from "@/components/ProjectCard";
 import { SearchBar } from "@/components/SearchBar";
-import { ComponentForm } from "@/components/ComponentForm";
+import { ProjectForm } from "@/components/ProjectForm";
 import { Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -103,6 +103,7 @@ export default function Projects() {
 
   const handleViewProject = (projectId: string) => {
     console.log(`Viewing project: ${projectId}`);
+    // TODO: Use proper routing with wouter
     window.location.href = `/projects/${projectId}`;
   };
 
@@ -128,14 +129,17 @@ export default function Projects() {
               New Project
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl" aria-describedby="create-project-dialog">
             <DialogHeader>
               <DialogTitle>Create New Project</DialogTitle>
             </DialogHeader>
-            <ComponentForm 
-              projectId="new" 
+            <p id="create-project-dialog" className="sr-only">
+              Dialog to create a new Gradle project with name, description and repository URL
+            </p>
+            <ProjectForm 
               onSubmit={handleCreateProject}
               onCancel={() => setShowNewProjectForm(false)}
+              isLoading={createProjectMutation.isPending}
             />
           </DialogContent>
         </Dialog>
@@ -153,21 +157,62 @@ export default function Projects() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProjects.map((project) => (
-          <ProjectCard
-            key={project.id}
-            project={project}
-            onViewProject={handleViewProject}
-          />
-        ))}
-      </div>
+      {/* Loading state */}
+      {isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-48 bg-muted rounded-lg animate-pulse" data-testid="project-skeleton" />
+          ))}
+        </div>
+      )}
+
+      {/* Error state */}
+      {error && (
+        <div className="text-center py-12" data-testid="projects-error">
+          <p className="text-destructive mb-2">Failed to load projects</p>
+          <p className="text-muted-foreground text-sm">{error.message}</p>
+          <Button 
+            variant="outline" 
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/projects'] })}
+            className="mt-4"
+            data-testid="button-retry"
+          >
+            Try Again
+          </Button>
+        </div>
+      )}
+
+      {/* Projects grid */}
+      {!isLoading && !error && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProjects.map((project) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onViewProject={handleViewProject}
+            />
+          ))}
+        </div>
+      )}
       
-      {filteredProjects.length === 0 && searchQuery && (
+      {/* Empty states */}
+      {!isLoading && !error && filteredProjects.length === 0 && searchQuery && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">
             No projects found matching "{searchQuery}"
           </p>
+        </div>
+      )}
+
+      {!isLoading && !error && projects.length === 0 && !searchQuery && (
+        <div className="text-center py-12" data-testid="empty-state">
+          <p className="text-muted-foreground mb-4">
+            No projects yet. Create your first Gradle project to get started.
+          </p>
+          <Button onClick={() => setShowNewProjectForm(true)} data-testid="button-create-first">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Project
+          </Button>
         </div>
       )}
     </div>

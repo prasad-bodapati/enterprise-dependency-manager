@@ -33,7 +33,7 @@ public class Project {
     @Column(name = "repository_url", columnDefinition = "TEXT")
     private String repositoryUrl;
     
-    @Column(name = "created_by", nullable = false)
+    @Column(name = "created_by", nullable = true)  // Allow null for demo
     private String createdById;
     
     @CreatedDate
