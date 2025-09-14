@@ -13,21 +13,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create environment without DATABASE_URL to force H2 usage
   const javaEnv = { ...process.env };
   delete javaEnv.DATABASE_URL;  // Remove PostgreSQL URL to allow H2 configuration
+
   
-  const javaProcess = spawn("mvn", ["-q", "spring-boot:run"], {
-    cwd: "backend-java",
-    stdio: ["ignore", "pipe", "pipe"],
-    env: javaEnv
-  });
-  
-  javaProcess.stdout?.on("data", (data) => {
-    console.log(`Java service: ${data}`);
-  });
-  
-  javaProcess.stderr?.on("data", (data) => {
-    console.error(`Java service error: ${data}`);
-  });
-  
+
   // Add proxy to forward /api/* to Java service on port 8080
   // EXCEPT for projects and components which use Node.js/PostgreSQL
   app.use("/api", async (req, res, next) => {
