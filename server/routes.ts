@@ -90,11 +90,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Project routes
   app.get("/api/projects", async (req, res) => {
+    console.log("🔥 FRONTEND REQUEST RECEIVED: GET /api/projects");
     try {
+      console.log("📊 Calling storage.getAllProjects()...");
       const projects = await storage.getAllProjects();
+      console.log("✅ Projects retrieved successfully:", projects.length, "projects");
       res.json(projects);
     } catch (error) {
-      console.error("Error fetching projects:", error);
+      console.error("❌ Error fetching projects:", error);
       res.status(500).json({ message: "Failed to fetch projects" });
     }
   });
