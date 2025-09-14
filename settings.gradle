@@ -1,0 +1,3 @@
+rootProject.name = 'adm'
+
+include("backend-java")
