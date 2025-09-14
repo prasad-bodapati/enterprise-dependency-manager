@@ -241,6 +241,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/components/:componentId/dependencies", async (req, res) => {
+    try {
+      const dependencyData = {
+        ...req.body,
+        componentId: req.params.componentId,
+        addedBy: "demo-user-id" // Will be replaced with actual auth later
+      };
+      const dependency = await storage.createDependency(dependencyData);
+      res.json(dependency);
+    } catch (error) {
+      console.error("Error creating dependency:", error);
+      res.status(500).json({ message: "Failed to create dependency" });
+    }
+  });
+
+  app.delete("/api/components/:componentId/dependencies/:dependencyId", async (req, res) => {
+    try {
+      await storage.deleteDependency(req.params.dependencyId);
+      res.json({ message: "Dependency deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting dependency:", error);
+      res.status(500).json({ message: "Failed to delete dependency" });
+    }
+  });
+
   app.post("/api/dependencies", async (req, res) => {
     try {
       const dependencyData = {

@@ -59,7 +59,8 @@ export default function ProjectView() {
   // Create dependency mutation
   const createDependencyMutation = useMutation({
     mutationFn: async (dependencyData: Omit<InsertDependency, 'addedBy'>) => {
-      const response = await apiRequest('POST', '/api/dependencies', dependencyData);
+      if (!selectedComponentId) throw new Error('No component selected');
+      const response = await apiRequest('POST', `/api/components/${selectedComponentId}/dependencies`, dependencyData);
       return response.json();
     },
     onSuccess: () => {
@@ -69,7 +70,7 @@ export default function ProjectView() {
       });
       setIsDependencyDialogOpen(false);
       setSelectedComponentId(null);
-      // Invalidate dependency queries
+      // Invalidate dependency queries - use consistent component-specific endpoint
       queryClient.invalidateQueries({ queryKey: ['/api/dependencies'] });
       if (selectedComponentId) {
         queryClient.invalidateQueries({ queryKey: ['/api/components', selectedComponentId, 'dependencies'] });
@@ -347,12 +348,14 @@ export default function ProjectView() {
                   {components.map((component) => {
                     const componentDependencies = getComponentDependencies(component.id);
                     return (
-                      <Card key={component.id} className="p-4">
+                      <Card key={component.id} className="p-4 hover-elevate">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h4 className="font-medium text-foreground" data-testid={`component-name-${component.id}`}>
-                              {component.name}
-                            </h4>
+                            <Link to={`/components/${component.id}`}>
+                              <h4 className="font-medium text-foreground hover:text-primary cursor-pointer" data-testid={`component-name-${component.id}`}>
+                                {component.name}
+                              </h4>
+                            </Link>
                             {component.description && (
                               <p className="text-sm text-muted-foreground mt-1" data-testid={`component-description-${component.id}`}>
                                 {component.description}
@@ -373,6 +376,16 @@ export default function ProjectView() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
+                            <Link to={`/components/${component.id}`}>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                data-testid={`button-view-component-${component.id}`}
+                              >
+                                <Package className="h-4 w-4 mr-2" />
+                                View Details
+                              </Button>
+                            </Link>
                             <Button 
                               variant="outline" 
                               size="sm" 
